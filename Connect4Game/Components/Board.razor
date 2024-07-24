@@ -1,0 +1,236 @@
+﻿@using System.Drawing
+@inject GameState State
+
+<h3>Board</h3>
+
+<nav>
+    @for (byte i = 0; i < 7; i++)
+    {
+        var col = i;
+        <span title="Click to play a piece" @onclick="() => PlayPiece(col)">🔽</span>
+    }
+</nav>
+
+<article>
+    @winnerMessage  <button style="@ResetStyle" @onclick="ResetGame">Reset the game</button>
+    <br />
+    <span class="alert-danger">@errorMessage</span>
+    <span class="alert-info">@CurrentTurn</span>
+</article>
+
+<div>
+    <div class="board">
+    @for (var i = 0; i < 42; i++)
+    {
+        <span class="container">
+            <span></span>
+        </span>
+    }
+    </div>
+    @for (var i = 0; i < 42; i++)
+    {
+        <span class="@pieces[i]"></span>
+    }
+</div>
+
+<form class="m-3">
+    <div class="row row-cols-6">
+        <div class="form-group col">
+            <label>Game Board Color</label>
+            <input id="bc" type="color" class="form-control" value="@ColorTranslator.ToHtml(Color.FromArgb(BoardColor.ToArgb()))" />
+        </div>
+        
+        <div class="form-group col">
+            <label>Player1 Color</label>
+            <input id="pl1c" type="color" class="form-control" value="@ColorTranslator.ToHtml(Color.FromArgb(Player1Color.ToArgb()))" />
+        </div>
+
+        <div class="form-group col">
+            <label>Player2 Color</label>
+            <input id="pl2c" type="color" class="form-control" value="@ColorTranslator.ToHtml(Color.FromArgb(Player2Color.ToArgb()))" />
+        </div>
+    </div>
+
+    <div class="row row-cols-6 mt-3">
+        <div class="col">
+            <label class="form-label">Gamer mode: </label>
+            <input id="gamerMode" type="button" class="btn btn-danger" value="false"/>
+        </div>
+        <div hidden id="transitionContainer" class="form-floating col mx-2">
+            <input id="transitionTime" class="form-control" type="number" value="1" step="1" min="0" max="10" />
+            <label for="transitionTime" class="">Transition Time </label>
+        </div>
+    </div>
+</form>
+
+<script>
+    var boardColor1 = document.querySelector('#bc');
+    var player1Color1 = document.querySelector('#pl1c');
+    var player2Color1 = document.querySelector('#pl2c');
+
+    boardColor1.addEventListener('input', event => {
+        document.documentElement.style.setProperty('--board-bg', event.target.value)
+    })
+
+    player1Color1.addEventListener('input', event => {
+        document.documentElement.style.setProperty('--player1', event.target.value)
+    })
+
+    player2Color1.addEventListener('input', event => {
+        document.documentElement.style.setProperty('--player2', event.target.value)
+    })
+
+</script>
+
+<script>
+    var transTimeEl = document.querySelector('#transitionTime');
+
+    transTimeEl.addEventListener('input', event => { 
+        if (event.target.value == '')
+            event.target.value = 0;
+        
+        if (event.target.value < 0)
+            event.target.value = -event.target.value;
+
+        if (event.target.value > 10)
+            event.target.value = event.target.value % 10;
+
+        document.documentElement.style.setProperty('--transitionColorTime', event.target.value + 's')
+
+        clearInterval(intervalId);
+        intervalId = setInterval(doDisco, event.target.value * 1000);
+    });
+</script>
+
+<script>
+    function getRandomHexColor() {
+        return "#" + Math.floor(Math.random() * 16777215).toString(16);
+    }
+</script>
+
+<script>
+    function doDisco() {
+        let randColor = getRandomHexColor();
+        document.documentElement.style.setProperty('--player1', randColor);
+        player1Color1.value = randColor;
+
+        randColor = getRandomHexColor();
+        document.documentElement.style.setProperty('--player2', randColor);
+        player2Color1.value = randColor;
+    }
+</script>
+
+<script>
+    var gamerModeBtn = document.querySelector('#gamerMode');
+    var transitionContainer = document.querySelector('#transitionContainer');
+    var intervalId;
+
+    gamerModeBtn.addEventListener('click', event => {
+        if (event.target.value === 'false') {
+            if (intervalId != null)
+                clearInterval(intervalId);
+
+            event.target.value = 'true';
+            transitionContainer.hidden = false;
+
+            event.target.classList.remove("btn-danger");
+            event.target.classList.add("btn-primary");
+
+            boardColor1.disabled = true;
+            player1Color1.disabled = true;
+            player2Color1.disabled = true;
+
+            intervalId = window.setInterval(doDisco, transTimeEl.value * 1000);
+        }
+        else {
+            event.target.value = 'false'
+            transitionContainer.hidden = true;
+
+            transTimeEl.value = 1;
+            document.documentElement.style.setProperty('--transitionColorTime', '1s');
+
+            event.target.classList.remove("btn-primary");
+            event.target.classList.add("btn-danger");
+
+            boardColor1.disabled = false;
+            player1Color1.disabled = false;
+            player2Color1.disabled = false;
+
+            clearInterval(intervalId);
+        }
+    });
+</script>
+
+<HeadContent>
+    <style>
+        :root {
+            --board-bg: @ColorTranslator.ToHtml(BoardColor);
+            --player1: @ColorTranslator.ToHtml(Player1Color);
+            --player2: @ColorTranslator.ToHtml(Player2Color);
+
+            --transitionColorTime: 1s;
+        }
+    </style>
+</HeadContent>
+
+@code {
+
+    private string[] pieces = new string[42];
+    private string winnerMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private string CurrentTurn => (winnerMessage == string.Empty) ? (State.PlayerTurn == 1) ? $"{Player1Name}'s Turn" : $"{Player2Name}'s Turn" : "";
+    private string ResetStyle => (winnerMessage == string.Empty) ? "display: none;" : "";
+
+    [Parameter]
+    public Color BoardColor { get; set; } = ColorTranslator.FromHtml("yellow");
+
+    [Parameter]
+    public Color Player1Color { get; set; } = ColorTranslator.FromHtml("red");
+
+    [Parameter]
+    public Color Player2Color { get; set; } = ColorTranslator.FromHtml("blue");
+
+    [Parameter]
+    public string Player1Name { get; set; } = "Player 1";
+    [Parameter]
+    public string Player2Name { get; set; } = "Player 2";
+
+    private void PlayPiece(byte col)
+    {
+        errorMessage = string.Empty;
+
+        try
+        {
+            var player = State.PlayerTurn;
+            var turn = State.CurrentTurn;
+            var landingRow = State.PlayPiece(col);
+            pieces[turn] = $"player{player} col{col} drop{landingRow}";
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+
+        winnerMessage = State.CheckForWin() switch
+        {
+            GameState.WinState.Player1_Wins => $"{Player1Name} Wins!",
+            GameState.WinState.Player2_Wins => $"{Player2Name} Wins!",
+            GameState.WinState.Tie => "It's a tie!",
+            _ => ""
+        };
+    }
+
+    void ResetGame()
+    {
+        State.ResetBoard();
+        winnerMessage = string.Empty;
+        errorMessage = string.Empty;
+        pieces = new string[42];
+    }
+
+    protected override void OnInitialized()
+    {
+        State.ResetBoard();
+    }
+}
